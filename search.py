@@ -121,22 +121,51 @@ def depthFirstSearch(problem:SearchProblem)->List[Direction]:
 def breadthFirstSearch(problem:SearchProblem)->List[Direction]:
     """Search the shallowest nodes in the search tree first."""
 
+    queue = util.Queue()
+    queue.push((problem.getStartState(), []))
+    
+    visited = set()
 
-    '''
-        INSÉREZ VOTRE SOLUTION À LA QUESTION 2 ICI
-    '''
+    while not queue.isEmpty():
+        state, path = queue.pop()
 
-    util.raiseNotDefined()
+        if problem.isGoalState(state):
+            return path
+
+        if state not in visited:
+            visited.add(state)
+
+            for successor, action, cost in problem.getSuccessors(state):
+                if successor not in visited:
+                    new_path = path + [action]
+                    queue.push((successor, new_path))
+
+    return []
 
 def uniformCostSearch(problem:SearchProblem)->List[Direction]:
     """Search the node of least total cost first."""
+    
+    pq = util.PriorityQueue()
+    pq.push((problem.getStartState(), [], 0), 0)
+    
+    visited = {}
 
+    while not pq.isEmpty():
+        state, path, cost = pq.pop()
 
-    '''
-        INSÉREZ VOTRE SOLUTION À LA QUESTION 3 ICI
-    '''
+        if problem.isGoalState(state):
+            return path
 
-    util.raiseNotDefined()
+        if state not in visited or cost < visited[state]:
+            visited[state] = cost
+
+            for successor, action, step_cost in problem.getSuccessors(state):
+                new_cost = cost + step_cost
+                new_path = path + [action]
+                pq.push((successor, new_path, new_cost), new_cost)
+                print(pq)
+
+    return []
 
 def nullHeuristic(state:GameState, problem:SearchProblem=None)->List[Direction]:
     """
@@ -147,11 +176,30 @@ def nullHeuristic(state:GameState, problem:SearchProblem=None)->List[Direction]:
 
 def aStarSearch(problem:SearchProblem, heuristic=nullHeuristic)->List[Direction]:
     """Search the node that has the lowest combined cost and heuristic first."""
-    '''
-        INSÉREZ VOTRE SOLUTION À LA QUESTION 4 ICI
-    '''
+    
+    pq = util.PriorityQueue()
+    start_state = problem.getStartState()
+    pq.push((start_state, [], 0), heuristic(start_state, problem))
+    
+    visited = {}
 
-    util.raiseNotDefined()
+    while not pq.isEmpty():
+        state, path, g_cost = pq.pop()
+
+        if problem.isGoalState(state):
+            return path
+
+        if state not in visited or g_cost < visited[state]:
+            visited[state] = g_cost
+
+            for successor, action, step_cost in problem.getSuccessors(state):
+                new_g_cost = g_cost + step_cost
+                new_path = path + [action]
+                h_cost = heuristic(successor, problem)
+                f_cost = new_g_cost + h_cost
+                pq.push((successor, new_path, new_g_cost), f_cost)
+
+    return []
 
 
 # Abbreviations
