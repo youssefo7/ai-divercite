@@ -167,7 +167,7 @@ def uniformCostSearch(problem:SearchProblem)->List[Direction]:
 
     return []
 
-def nullHeuristic(state:GameState, problem:SearchProblem=None)->List[Direction]:
+def nullHeuristic(state:GameState, problem:SearchProblem=None)->List[Direction]: #TODO
     """
     A heuristic function estimates the cost from the current state to the nearest
     goal in the provided SearchProblem.  This heuristic is trivial.
