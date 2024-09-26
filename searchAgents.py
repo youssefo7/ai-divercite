@@ -292,7 +292,7 @@ class CornersProblem(search.SearchProblem):
         # in initializing the problem
   
         '''
-            INSÉREZ VOTRE SOLUTION À LA QUESTION 5 ICI #TODO ?
+            INSÉREZ VOTRE SOLUTION À LA QUESTION 5 ICI
         '''
 
 
@@ -308,7 +308,7 @@ class CornersProblem(search.SearchProblem):
         """
         Returns whether this search state is a goal state of the problem.
         """
-        return all(state[1]) 
+        return all(state[1])  # All corners visited
 
 
     def getSuccessors(self, state):
@@ -341,6 +341,7 @@ class CornersProblem(search.SearchProblem):
                 nextState = ((nextx, nexty), tuple(visited_corners)) 
                 successors.append((nextState, action, 1))  
 
+        self._expanded += 1  # Increment expanded node count, j
         return successors
 
     def getCostOfActions(self, actions):
