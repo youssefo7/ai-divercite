@@ -482,7 +482,20 @@ def foodHeuristic(state, problem: FoodSearchProblem):
     '''
         INSÉREZ VOTRE SOLUTION À LA QUESTION 7 ICI
     '''
+    food_list = foodGrid.asList()
+    distances = []
+    
+    if not food_list:
+        return 0
+    
+    for food_position in food_list: 
+        position_search_problem = PositionSearchProblem(problem.startingGameState, start=position, goal=food_position, warn=False)
+        bfs_path_to_food = search.breadthFirstSearch(position_search_problem)
+        food_distance = len(bfs_path_to_food)
+        distances.append(food_distance)
+
+    return max(distances)
 
 
-    return 0
+
 
