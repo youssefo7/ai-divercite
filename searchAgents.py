@@ -448,54 +448,34 @@ class AStarFoodSearchAgent(SearchAgent):
     def __init__(self):
         self.searchFunction = lambda prob: search.aStarSearch(prob, foodHeuristic)
         self.searchType = FoodSearchProblem
-
+        
 def foodHeuristic(state, problem: FoodSearchProblem):
-    """
-    Your heuristic for the FoodSearchProblem goes here.
-
-    This heuristic must be consistent to ensure correctness.  First, try to come
-    up with an admissible heuristic; almost all admissible heuristics will be
-    consistent as well.
-
-    If using A* ever finds a solution that is worse uniform cost search finds,
-    your heuristic is *not* consistent, and probably not admissible!  On the
-    other hand, inadmissible or inconsistent heuristics may find optimal
-    solutions, so be careful.
-
-    The state is a tuple ( pacmanPosition, foodGrid ) where foodGrid is a Grid
-    (see game.py) of either True or False. You can call foodGrid.asList() to get
-    a list of food coordinates instead.
-
-    If you want access to info like walls, capsules, etc., you can query the
-    problem.  For example, problem.walls gives you a Grid of where the walls
-    are.
-
-    If you want to *store* information to be reused in other calls to the
-    heuristic, there is a dictionary called problem.heuristicInfo that you can
-    use. For example, if you only want to count the walls once and store that
-    value, try: problem.heuristicInfo['wallCount'] = problem.walls.count()
-    Subsequent calls to this heuristic can access
-    problem.heuristicInfo['wallCount']
-    """
     position, foodGrid = state
-
-    '''
-        INSÉREZ VOTRE SOLUTION À LA QUESTION 7 ICI
-    '''
     food_list = foodGrid.asList()
-    distances = []
-    
+
     if not food_list:
         return 0
+
+    # Cache distances
+    distances = problem.heuristicInfo.get('distances', {})
     
-    for food_position in food_list: 
-        position_search_problem = PositionSearchProblem(problem.startingGameState, start=position, goal=food_position, warn=False)
-        bfs_path_to_food = search.breadthFirstSearch(position_search_problem)
-        food_distance = len(bfs_path_to_food)
-        distances.append(food_distance)
+    def maze_distance(pos1, pos2):
+        if (pos1, pos2) not in distances:
+            distances[(pos1, pos2)] = distances[(pos2, pos1)] = mazeDistance(pos1, pos2, problem.startingGameState)
+        return distances[(pos1, pos2)]
 
-    return max(distances)
+    problem.heuristicInfo['distances'] = distances
 
+    food_distances = [maze_distance(position, food) for food in food_list]
 
+    max_food_distance = max(maze_distance(food1, food2) 
+                            for i, food1 in enumerate(food_list) 
+                            for food2 in food_list[i+1:]) if len(food_list) > 1 else 0
 
+    return max(max(food_distances), 
+               min(food_distances) + max_food_distance, 
+               len(food_list) - 1)  
 
+def mazeDistance(point1, point2, gameState):
+    problem = PositionSearchProblem(gameState, start=point1, goal=point2, warn=False, visualize=False)
+    return len(search.bfs(problem))
