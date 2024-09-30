@@ -456,25 +456,33 @@ def foodHeuristic(state, problem: FoodSearchProblem):
     if not food_list:
         return 0
 
-    # Cache distances
-    distances = problem.heuristicInfo.get('distances', {})
+    cached_distances = problem.heuristicInfo.get('distances', {})
     
-    def maze_distance(pos1, pos2):
-        if (pos1, pos2) not in distances:
-            distances[(pos1, pos2)] = distances[(pos2, pos1)] = mazeDistance(pos1, pos2, problem.startingGameState)
-        return distances[(pos1, pos2)]
+    def getMazeDistance(pos1, pos2):
+        if (pos1, pos2) not in cached_distances:
+            distance = mazeDistance(pos1, pos2, problem.startingGameState)
+            cached_distances[(pos1, pos2)] = distance
+            cached_distances[(pos2, pos1)] = distance
+        return cached_distances[(pos1, pos2)]
 
-    problem.heuristicInfo['distances'] = distances
+    problem.heuristicInfo['distances'] = cached_distances
 
-    food_distances = [maze_distance(position, food) for food in food_list]
+    distances_to_food = [getMazeDistance(position, food) for food in food_list]
 
-    max_food_distance = max(maze_distance(food1, food2) 
-                            for i, food1 in enumerate(food_list) 
-                            for food2 in food_list[i+1:]) if len(food_list) > 1 else 0
+    if len(food_list) > 1:
+            max_food_to_food_distance = max(
+                getMazeDistance(food1, food2)
+                for i, food1 in enumerate(food_list)
+                for food2 in food_list[i + 1:]
+            )
+    else:
+        max_food_to_food_distance = 0
 
-    return max(max(food_distances), 
-               min(food_distances) + max_food_distance, 
-               len(food_list) - 1)  
+    return max(
+        max(distances_to_food),                         
+        min(distances_to_food) + max_food_to_food_distance,  
+        len(food_list) - 1                        
+    )
 
 def mazeDistance(point1, point2, gameState):
     problem = PositionSearchProblem(gameState, start=point1, goal=point2, warn=False, visualize=False)
