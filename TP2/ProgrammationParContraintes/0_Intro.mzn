@@ -25,6 +25,33 @@ var int: p;
 %-----------------------------------------------------------------------------%
 
 
+% Contrainte liant le nombre à ses chiffres
+constraint nombre = 1000 * chiffres[1] + 100 * chiffres[2] + 10 * chiffres[3] + chiffres[4];
+
+% 1. Nombre pair
+constraint chiffres[4] mod 2 = 0;
+
+% 2. Le chiffre 0 n'est pas présent (déjà géré par la déclaration var 1..9)
+
+% 3. Les 4 chiffres sont différents
+constraint alldifferent(chiffres);
+
+% 4. Milliers > Centaines
+constraint chiffres[1] > chiffres[2];
+
+% 5. Dizaines < Unités
+constraint chiffres[3] < chiffres[4];
+
+% 6. Centaines > Unités
+constraint chiffres[2] > chiffres[4];
+
+% 7. Somme > 15
+constraint sum(chiffres) > 15;
+
+% 8. Produit des 3 derniers chiffres à minimiser
+constraint p = chiffres[2] * chiffres[3] * chiffres[4];
+solve minimize p;
+
 %-----------------------------------------------------------------------------%
 
 output [

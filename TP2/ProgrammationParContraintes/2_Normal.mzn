@@ -37,6 +37,29 @@ var int: fin_projet;
 % Partie étudiant
 %-----------------------------------------------------------------------------%
 
+% Contrainte liant le début et la fin de chaque tâche
+constraint forall(i in 1..n) (
+  fin_tache[i] = debut_tache[i] + duree_tache[i]
+);
+
+% Contrainte pour définir la fin du projet (makespan)
+constraint fin_projet = max(fin_tache);
+
+% Contrainte pour s'assurer que toutes les tâches finissent dans l'horizon temporel
+constraint forall(i in 1..n) (
+  fin_tache[i] <= m
+);
+
+% Contrainte cumulative pour s'assurer que l'utilisation d'énergie ne dépasse pas la limite
+constraint cumulative(debut_tache, duree_tache, ressource_tache, limite);
+
+% Contrainte pour limiter le nombre de tâches qui démarrent en même temps
+constraint forall(t in 1..m) (
+    sum(i in 1..n) (bool2int(debut_tache[i] = t)) <= 2
+);
+
+% Objectif : minimiser le makespan
+solve minimize fin_projet;
 
 %-----------------------------------------------------------------------------%
 
