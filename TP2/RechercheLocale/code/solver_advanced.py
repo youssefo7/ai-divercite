@@ -61,7 +61,7 @@ def solve(schedule):
     best_solution = None
     best_cost = float('inf')
 
-    while time.time() - start_time < 120:  # DO random restart until the 5 min time limit is up
+    while time.time() - start_time < 280:  # DO random restart until almost 5 min time limit is up
         # Generate an initial solution
         current_solution = initialize_solution(schedule)
         
