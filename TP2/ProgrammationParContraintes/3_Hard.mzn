@@ -1,5 +1,5 @@
-% NOM_ETUDIANT_1 (MATRICULE_1)
-% NOM_ETUDIANT_2 (MATRICULE_2)
+% OUARAD (2117136)
+% FARHAT (X)
 
 include "globals.mzn"; 
 
@@ -48,6 +48,42 @@ var int: temps_trajet;
 %-----------------------------------------------------------------------------%
 % Partie étudiant
 %-----------------------------------------------------------------------------%
+% 1. Visiter chaque ville une fois sans répétition
+constraint all_different(chemin_tournee);
+constraint all_different(circuit_tournee);
+constraint temps_trajet >= n * min_val;
+constraint forall(i in 1..n-1)(cumul_temps[i] < cumul_temps[i+1]);
+
+
+% 2. Trouver le circuit de la tournée
+constraint forall(i in 1..n-1)(
+  circuit_tournee[chemin_tournee[i]] = chemin_tournee[i+1]
+);
+
+% 3. Commencer par la ville de départ et y terminer
+constraint chemin_tournee[n] = 1;
+constraint circuit_tournee[1] = chemin_tournee[1]; 
+
+% 3. Respect des fenetres de temps
+constraint forall(i in 1..n) (
+    cumul_temps[i] >= fenetre_arrivee[chemin_tournee[i], 1] /\
+    cumul_temps[i] <= fenetre_arrivee[chemin_tournee[i], 2]
+);
+
+% 4. Calcul de temps 
+% Le temps d’arrivée à la première ville inclut la distance depuis la dernière ville visitée pour fermer la tournée (c’est-à-dire le retour à la première ville dans un circuit fermé) et on ajoute le temps d'attente dans la première ville
+constraint cumul_temps[1] = distance[chemin_tournee[n], chemin_tournee[1]] + temps_attente[chemin_tournee[1]];
+% Pour les autres villes, le temps d'arrivée cumulé à la ville précédente + le temps d'attente dans la ville + la distance entre la ville i-1 (ville précédente) et la ville i (ville actuelle)
+constraint forall(i in 2..n)(
+  cumul_temps[i] = cumul_temps[i-1] + temps_attente[chemin_tournee[i]] + distance[chemin_tournee[i-1], chemin_tournee[i]] 
+);
+
+
+
+constraint temps_trajet = cumul_temps[n] ;
+
+% Heuristique de recherche sur l'ordre des villes choisies dans chemin_tournee. First_fail permet de prioriser les choix maximisant la contrainte (reduits les conflits), indomain_min attribue la valeur minimale a chaque var, complete execute une recherche entiere pour optimiser
+solve :: int_search(chemin_tournee, smallest, indomain_min, complete) minimize temps_trajet;
 
 
 %-----------------------------------------------------------------------------%
