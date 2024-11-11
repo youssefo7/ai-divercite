@@ -1,5 +1,5 @@
 % OUARAD (2117136)
-% FARHAT (X)
+% FARHAT (2153946)
 
 include "globals.mzn"; 
 
@@ -48,42 +48,56 @@ var int: temps_trajet;
 %-----------------------------------------------------------------------------%
 % Partie étudiant
 %-----------------------------------------------------------------------------%
-% 1. Visiter chaque ville une fois sans répétition
+
+% 0. Contrainte globale de circuit pour notre variable
+constraint subcircuit(circuit_tournee);
+
+% 1. Visiter chaque ville seulement une fois : 
 constraint all_different(chemin_tournee);
 constraint all_different(circuit_tournee);
+
+% 2. Durée minimale de la tournée : 
+% Le temps total de trajet doit être supérieur ou égal à la durée minimale calculée.
 constraint temps_trajet >= n * min_val;
-constraint forall(i in 1..n-1)(cumul_temps[i] < cumul_temps[i+1]);
 
+% 3. Ordre des visites : 
+% Le temps de cumul doit être croissant entre les villes successives.
+constraint increasing(cumul_temps);
 
-% 2. Trouver le circuit de la tournée
-constraint forall(i in 1..n-1)(
+% 4. Définir le circuit de la tournée : 
+% Chaque ville dans le chemin doit être reliée à la ville suivante dans le circuit.
+constraint forall(i in 1..n-1)( 
   circuit_tournee[chemin_tournee[i]] = chemin_tournee[i+1]
 );
 
-% 3. Commencer par la ville de départ et y terminer
+% 5. La ville de départ et de fin sont les mêmes : 
 constraint chemin_tournee[n] = 1;
 constraint circuit_tournee[1] = chemin_tournee[1]; 
 
-% 3. Respect des fenetres de temps
+% 6. Respect des fenêtres de temps lors des visites des villes : 
 constraint forall(i in 1..n) (
-    cumul_temps[i] >= fenetre_arrivee[chemin_tournee[i], 1] /\
+    cumul_temps[i] >= fenetre_arrivee[chemin_tournee[i], 1] /\ 
     cumul_temps[i] <= fenetre_arrivee[chemin_tournee[i], 2]
 );
 
-% 4. Calcul de temps 
-% Le temps d’arrivée à la première ville inclut la distance depuis la dernière ville visitée pour fermer la tournée (c’est-à-dire le retour à la première ville dans un circuit fermé) et on ajoute le temps d'attente dans la première ville
+% 7. Calcul du temps de trajet, d'abord la ville 1: 
+% Le temps de cumul pour la première ville est la distance de retour plus le temps d'attente à la première ville.
 constraint cumul_temps[1] = distance[chemin_tournee[n], chemin_tournee[1]] + temps_attente[chemin_tournee[1]];
-% Pour les autres villes, le temps d'arrivée cumulé à la ville précédente + le temps d'attente dans la ville + la distance entre la ville i-1 (ville précédente) et la ville i (ville actuelle)
+
+% 8. Pour chaque ville suivante, calculer le temps de cumul : 
+% Le temps de cumul pour chaque ville est le temps précédent plus le temps d'attente et la distance parcourue.
 constraint forall(i in 2..n)(
-  cumul_temps[i] = cumul_temps[i-1] + temps_attente[chemin_tournee[i]] + distance[chemin_tournee[i-1], chemin_tournee[i]] 
+  cumul_temps[i] = cumul_temps[i-1] + temps_attente[chemin_tournee[i]] + distance[chemin_tournee[i-1], chemin_tournee[i]]
 );
 
+% 9. Calcul du temps total de trajet : 
+% Le temps total est le dernier temps de cumul.
+constraint temps_trajet = cumul_temps[n];
 
+% 10. Heuristique pour la recherche : 
+% Utilisation de la méthode de recherche pour minimiser le temps de trajet en utilisant un algorithme de recherche par échec (first_fail).
+solve :: int_search(chemin_tournee, first_fail, indomain_split, complete) minimize temps_trajet;
 
-constraint temps_trajet = cumul_temps[n] ;
-
-% Heuristique de recherche sur l'ordre des villes choisies dans chemin_tournee. First_fail permet de prioriser les choix maximisant la contrainte (reduits les conflits), indomain_min attribue la valeur minimale a chaque var, complete execute une recherche entiere pour optimiser
-solve :: int_search(chemin_tournee, smallest, indomain_min, complete) minimize temps_trajet;
 
 
 %-----------------------------------------------------------------------------%
