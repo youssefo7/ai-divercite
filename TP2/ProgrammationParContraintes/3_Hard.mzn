@@ -1,5 +1,5 @@
-% NOM_ETUDIANT_1 (MATRICULE_1)
-% NOM_ETUDIANT_2 (MATRICULE_2)
+% OUARAD (2117136)
+% FARHAT (2153946)
 
 include "globals.mzn"; 
 
@@ -48,6 +48,56 @@ var int: temps_trajet;
 %-----------------------------------------------------------------------------%
 % Partie étudiant
 %-----------------------------------------------------------------------------%
+
+% 0. Contrainte globale de circuit pour notre variable
+constraint subcircuit(circuit_tournee);
+
+% 1. Visiter chaque ville seulement une fois : 
+constraint all_different(chemin_tournee);
+constraint all_different(circuit_tournee);
+
+% 2. Durée minimale de la tournée : 
+% Le temps total de trajet doit être supérieur ou égal à la durée minimale calculée.
+constraint temps_trajet >= n * min_val;
+
+% 3. Ordre des visites : 
+% Le temps de cumul doit être croissant entre les villes successives.
+constraint increasing(cumul_temps);
+
+% 4. Définir le circuit de la tournée : 
+% Chaque ville dans le chemin doit être reliée à la ville suivante dans le circuit.
+constraint forall(i in 1..n-1)( 
+  circuit_tournee[chemin_tournee[i]] = chemin_tournee[i+1]
+);
+
+% 5. La ville de départ et de fin sont les mêmes : 
+constraint chemin_tournee[n] = 1;
+constraint circuit_tournee[1] = chemin_tournee[1]; 
+
+% 6. Respect des fenêtres de temps lors des visites des villes : 
+constraint forall(i in 1..n) (
+    cumul_temps[i] >= fenetre_arrivee[chemin_tournee[i], 1] /\ 
+    cumul_temps[i] <= fenetre_arrivee[chemin_tournee[i], 2]
+);
+
+% 7. Calcul du temps de trajet, d'abord la ville 1: 
+% Le temps de cumul pour la première ville est la distance de retour plus le temps d'attente à la première ville.
+constraint cumul_temps[1] = distance[chemin_tournee[n], chemin_tournee[1]] + temps_attente[chemin_tournee[1]];
+
+% 8. Pour chaque ville suivante, calculer le temps de cumul : 
+% Le temps de cumul pour chaque ville est le temps précédent plus le temps d'attente et la distance parcourue.
+constraint forall(i in 2..n)(
+  cumul_temps[i] = cumul_temps[i-1] + temps_attente[chemin_tournee[i]] + distance[chemin_tournee[i-1], chemin_tournee[i]]
+);
+
+% 9. Calcul du temps total de trajet : 
+% Le temps total est le dernier temps de cumul.
+constraint temps_trajet = cumul_temps[n];
+
+% 10. Heuristique pour la recherche : 
+% Utilisation de la méthode de recherche pour minimiser le temps de trajet en utilisant un algorithme de recherche par échec (first_fail).
+solve :: int_search(chemin_tournee, first_fail, indomain_split, complete) minimize temps_trajet;
+
 
 
 %-----------------------------------------------------------------------------%

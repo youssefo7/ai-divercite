@@ -1,5 +1,5 @@
-% NOM_ETUDIANT_1 (MATRICULE_1)
-% NOM_ETUDIANT_2 (MATRICULE_2)
+% OUARAD (2117136)
+% FARHAT (2153946)
 
 include "globals.mzn"; 
 
@@ -37,28 +37,28 @@ var int: fin_projet;
 % Partie étudiant
 %-----------------------------------------------------------------------------%
 
-% Contrainte liant le début et la fin de chaque tâche
+% 1. Définir les temps t de fin de tâches, pour chaque tâche
 constraint forall(i in 1..n) (
   fin_tache[i] = debut_tache[i] + duree_tache[i]
 );
 
-% Contrainte pour définir la fin du projet (makespan)
-constraint fin_projet = max(fin_tache);
+% 2. Limiter la consommation d'énergie à chaque instant (Contrainte globale)
+constraint cumulative(debut_tache, duree_tache, ressource_tache, limite);
 
-% Contrainte pour s'assurer que toutes les tâches finissent dans l'horizon temporel
+% 3. Limiter le nombre de tâche conccurentes à 2 à chaque instant
+constraint forall(t in 1..m) (
+  sum(i in 1..n) (bool2int(debut_tache[i] = t)) <= 2
+);
+
+% 4. Respecter la limite de temps que peut prendre le projet
 constraint forall(i in 1..n) (
   fin_tache[i] <= m
 );
 
-% Contrainte cumulative pour s'assurer que l'utilisation d'énergie ne dépasse pas la limite
-constraint cumulative(debut_tache, duree_tache, ressource_tache, limite);
+% 5. Contrainte globale pour minimiser le makespan
+constraint maximum(fin_projet, fin_tache);
 
-% Contrainte pour limiter le nombre de tâches qui démarrent en même temps
-constraint forall(t in 1..m) (
-    sum(i in 1..n) (bool2int(debut_tache[i] = t)) <= 2
-);
-
-% Objectif : minimiser le makespan
+% 6. Minimiser fin_projet
 solve minimize fin_projet;
 
 %-----------------------------------------------------------------------------%
