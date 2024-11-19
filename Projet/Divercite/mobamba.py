@@ -4,7 +4,6 @@ from seahorse.game.game_state import GameState
 from game_state_divercite import GameStateDivercite
 from seahorse.utils.custom_exceptions import MethodNotImplementedError
 from seahorse.game.light_action import LightAction
-from seahorse.game.game_layout.board import Piece
 
 class MyPlayer(PlayerDivercite):
     """
@@ -100,70 +99,14 @@ class MyPlayer(PlayerDivercite):
 
     def evaluate_state(self, state: GameStateDivercite) -> float:
         """
-        Enhanced heuristic evaluation function:
-        5 × (blocking Divercites from opponent)
-        + 5 × (Divercites for you)
-        + 2 × (Similar Resource Points)
-        - 3 × (Opponent Potential Divercites)
+        Heuristic evaluation function for a game state.
+
+        Args:
+            state (GameStateDivercite): The game state to evaluate.
+
+        Returns:
+            float: Evaluated score of the game state.
         """
         player1, player2 = state.players
-        board_env = state.get_rep().get_env()
-        dimensions = state.get_rep().get_dimensions()
-        
-        my_divercites = 0
-        blocking_divercites = 0
-        opponent_potential_divercites = 0
-        similar_resource_points = 0
-
-        # Scan the board
-        for i in range(dimensions[0]):
-            for j in range(dimensions[1]):
-                if not state.in_board((i, j)):
-                    continue
-                    
-                # Count existing Divercites
-                if state.check_divercite((i, j)):
-                    piece = board_env.get((i, j))
-                    if piece and piece.get_owner_id() == self.get_id():
-                        my_divercites += 1
-
-                # Check neighbors for potential Divercites and blocking
-                neighbors = state.get_neighbours(i, j)
-                piece_types = [n[0].get_type() if isinstance(n[0], Piece) else None for n in neighbors.values()]
-                owner_ids = [n[0].get_owner_id() if isinstance(n[0], Piece) else None for n in neighbors.values()]
-                
-                # Count similar resource points
-                if (i, j) in board_env:
-                    curr_piece = board_env[(i, j)]
-                    if curr_piece.get_owner_id() == self.get_id():
-                        for neighbor in neighbors.values():
-                            if (isinstance(neighbor[0], Piece) and 
-                                neighbor[0].get_owner_id() == self.get_id() and 
-                                neighbor[0].get_type()[1] == curr_piece.get_type()[1]):
-                                similar_resource_points += 1
-
-                # Check if we're blocking opponent's potential Divercite
-                if any(id == player2.get_id() for id in owner_ids):
-                    unique_colors = len(set(pt[0] for pt in piece_types if pt))
-                    if unique_colors >= 2:  # If we're blocking a potential Divercite
-                        blocking_divercites += 1
-
-                # Count opponent's potential Divercites
-                if not board_env.get((i, j)):
-                    opponent_pieces = [pt for pt, id in zip(piece_types, owner_ids) 
-                                    if id == player2.get_id()]
-                    if len(set(p[0] for p in opponent_pieces if p)) >= 2:
-                        opponent_potential_divercites += 1
-
-        # Calculate final score using the provided weights
-        heuristic_score = (
-            6 * blocking_divercites +
-            5 * my_divercites +
-            2 * similar_resource_points -
-            3 * opponent_potential_divercites
-        )
-
-        # Add base game score
-        base_score = state.scores[self.get_id()] - state.scores[player2.get_id()]
-        
-        return heuristic_score + base_score
+        # For now, use a basic heuristic based on the agent's score in the state
+        return state.scores[self.get_id()] - state.scores[player2.get_id()]

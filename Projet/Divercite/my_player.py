@@ -1,169 +1,236 @@
 from player_divercite import PlayerDivercite
 from seahorse.game.action import Action
-from seahorse.game.game_state import GameState
 from game_state_divercite import GameStateDivercite
-from seahorse.utils.custom_exceptions import MethodNotImplementedError
 from seahorse.game.light_action import LightAction
 from seahorse.game.game_layout.board import Piece
 
 class MyPlayer(PlayerDivercite):
     """
-    Player class for Divercite game using minimax with alpha-beta pruning.
+    Strategic Divercite player that prioritizes:
+    1. Blocking opponent's potential Divercités
+    2. Placing cities before resources unless blocking is needed
     """
 
-    def __init__(self, piece_type: str, name: str = "MyPlayer", depth_limit: int = 4):
-        """
-        Initialize the PlayerDivercite instance with alpha-beta depth control.
-
-        Args:
-            piece_type (str): Type of the player's game piece.
-            name (str, optional): Name of the player.
-            depth_limit (int, optional): Maximum depth for alpha-beta pruning.
-        """
+    def __init__(self, piece_type: str, name: str = "MyPlayer", depth_limit: int = 3):
         super().__init__(piece_type, name)
         self.depth_limit = depth_limit
 
-    def compute_action(self, current_state: GameStateDivercite, remaining_time: int = 1e9, **kwargs) -> Action:
+    def detect_potential_divercite(self, state: GameStateDivercite, position: tuple, player_id: int) -> bool:
         """
-        Choose the best action based on minimax with alpha-beta pruning.
+        Check if placing a piece at the given position would create a Divercité for the specified player.
+        
+        Args:
+            state: Current game state
+            position: Position to check (x, y)
+            player_id: ID of the player to check for
+            
+        Returns:
+            bool: True if a Divercité is possible at this position
+        """
+        # Get neighboring pieces
+        neighbors = state.get_neighbours(position[0], position[1])
+        
+        # Count unique colors of resources around the position
+        resource_colors = set()
+        for neighbor in neighbors.values():
+            if isinstance(neighbor[0], Piece):
+                piece_type = neighbor[0].get_type()
+                if piece_type[0] != 'C':  # If it's a resource
+                    resource_colors.add(piece_type[0])
+        
+        # If there are already 3 or more different colors, a Divercité is possible
+        return len(resource_colors) >= 3
+
+    def get_blocking_move(self, state: GameStateDivercite) -> LightAction:
+        """
+        Find a move that blocks the opponent's potential Divercité.
 
         Args:
-            current_state (GameStateDivercite): The current game state.
+            state (GameStateDivercite): The current game state.
 
         Returns:
-            Action: The best action as determined by alpha-beta pruning.
+            LightAction: A blocking move if found, or None otherwise.
+        """
+        # Determine the opponent's ID
+        my_id = self.get_id()
+        opponent_id = state.players[1].get_id() if my_id == state.players[0].get_id() else state.players[0].get_id()
+
+        # Retrieve board environment and dimensions
+        board_env = state.get_rep().get_env()
+        dimensions = state.get_rep().get_dimensions()
+
+        # Iterate through all positions on the board
+        for i in range(dimensions[0]):
+            for j in range(dimensions[1]):
+                position = (i, j)
+
+                # Skip positions outside the board or already occupied
+                if not state.in_board(position) or board_env.get(position):
+                    continue
+
+                # Check if this position creates a Divercité for the opponent
+                if self.detect_potential_divercite(state, position, opponent_id):
+                    # Look for a legal blocking move
+                    for action in state.generate_possible_light_actions():
+                        # Ensure action has a 'data' attribute and contains the necessary keys
+                        if hasattr(action, "data"):
+                            action_data = action.data
+                            if "position" in action_data and action_data["position"] == position:
+                                # Debug: Log piece type if needed
+                                piece = action_data.get("piece", None)
+                                print(f"Blocking action found: {action_data} with piece type: {piece}")
+                                return action
+                            else:
+                                # Debug: Log mismatched action
+                                print(f"Mismatched action: {action_data}, expected position: {position}")
+                        else:
+                            print(f"Action has no 'data': {action.__dict__}")
+
+        # Return None if no blocking move is found
+        return None
+
+
+    def should_place_city(self, state: GameStateDivercite) -> bool:
+        """
+        Determine if we should place a city or resource next.
+        """
+        board_env = state.get_rep().get_env()
+        city_count = 0
+        total_pieces = 0
+        
+        # Count cities and total pieces
+        for piece in board_env.values():
+            if piece and piece.get_owner_id() == self.get_id():
+                total_pieces += 1
+                if piece.get_type()[0] == 'C':
+                    city_count += 1
+                    
+        # Place all cities first (unless we need to block)
+        return city_count < 4
+
+    def compute_action(self, current_state: GameStateDivercite, remaining_time: int = 1e9, **kwargs) -> Action:
+        """
+        Choose the best action following our strategy:
+        1. Block opponent's potential Divercités
+        2. Place cities before resources (unless blocking)
+        3. Otherwise use minimax for optimal play
+        """
+        # First priority: Block opponent's potential Divercité
+        blocking_move = self.get_blocking_move(current_state)
+        if blocking_move:
+            return blocking_move
+
+        # Generate all possible moves
+        possible_actions = list(current_state.generate_possible_light_actions())
+        
+        # Separate cities and resources
+        city_moves = []
+        resource_moves = []
+        for action in possible_actions:
+            # Inspect the internal data of the object
+            print(action.__dict__)  # Display the internal data of the object
+
+            # Check if 'data' exists in action.__dict__
+            if hasattr(action, "data"):
+                action_data = action.data
+                # Verify if 'piece' exists in the action data
+                if "piece" in action_data:
+                    # Check if the first character of 'piece' is 'C' (for city)
+                    if action_data["piece"][0] == 'C':
+                        city_moves.append(action)
+                    else:
+                        resource_moves.append(action)
+                else:
+                    print(f"L'action n'a pas d'attribut 'piece' dans 'data': {action_data}")
+            else:
+                print(f"L'action n'a pas d'attribut 'data': {action.__dict__}")
+
+
+
+        # Second priority: Follow city-first strategy
+        if self.should_place_city(current_state) and city_moves:
+            # Use minimax to choose the best city placement
+            return self.get_best_move(current_state, city_moves)
+        elif resource_moves:
+            # Use minimax to choose the best resource placement
+            return self.get_best_move(current_state, resource_moves)
+        else:
+            # Fallback to any legal move
+            return self.get_best_move(current_state, possible_actions)
+
+    def get_best_move(self, state: GameStateDivercite, moves: list) -> Action:
+        """
+        Use minimax to select the best move from the given list of moves.
         """
         best_action = None
-        max_score = -float("inf")
-
-        # Alpha and Beta initialized
-        alpha = -float("inf")
+        max_score = float("-inf")
+        alpha = float("-inf")
         beta = float("inf")
 
-        # Iterate over possible actions and apply minimax with alpha-beta pruning
-        for action in current_state.generate_possible_light_actions():
-            # Apply action to get a new game state
-            new_state = current_state.apply_action(action)
-
-            # Recursively call minimax on the new state, decreasing depth
-            score = self.minimax(new_state, self.depth_limit - 1, alpha, beta, maximizing_player=False)
-
-            # Update the best move if we find a higher score
+        for action in moves:
+            new_state = state.apply_action(action)
+            score = self.minimax(new_state, self.depth_limit - 1, alpha, beta, False)
+            
             if score > max_score:
                 max_score = score
                 best_action = action
-            # Update alpha
             alpha = max(alpha, score)
 
         return best_action
 
     def minimax(self, state: GameStateDivercite, depth: int, alpha: float, beta: float, maximizing_player: bool) -> float:
         """
-        Minimax function with alpha-beta pruning.
-
-        Args:
-            state (GameStateDivercite): The current game state.
-            depth (int): Depth of search left.
-            alpha (float): Alpha value for pruning.
-            beta (float): Beta value for pruning.
-            maximizing_player (bool): True if the current player is maximizing.
-
-        Returns:
-            float: The evaluated score of the game state.
+        Minimax implementation with alpha-beta pruning.
         """
         if depth == 0 or state.is_done():
-            # Return heuristic evaluation at leaf nodes or end-game
             return self.evaluate_state(state)
 
         if maximizing_player:
-            max_eval = -float("inf")
+            value = float("-inf")
             for action in state.generate_possible_light_actions():
-                # Apply action to get a new game state
-                new_state = state.apply_action(action)
-                eval_score = self.minimax(new_state, depth - 1, alpha, beta, maximizing_player=False)
-                max_eval = max(max_eval, eval_score)
-                alpha = max(alpha, eval_score)
+                value = max(value, self.minimax(state.apply_action(action), depth - 1, alpha, beta, False))
+                alpha = max(alpha, value)
                 if beta <= alpha:
-                    break  # Beta cutoff
-            return max_eval
+                    break
+            return value
         else:
-            min_eval = float("inf")
+            value = float("inf")
             for action in state.generate_possible_light_actions():
-                # Apply action to get a new game state
-                new_state = state.apply_action(action)
-                eval_score = self.minimax(new_state, depth - 1, alpha, beta, maximizing_player=True)
-                min_eval = min(min_eval, eval_score)
-                beta = min(beta, eval_score)
+                value = min(value, self.minimax(state.apply_action(action), depth - 1, alpha, beta, True))
+                beta = min(beta, value)
                 if beta <= alpha:
-                    break  # Alpha cutoff
-            return min_eval
+                    break
+            return value
 
     def evaluate_state(self, state: GameStateDivercite) -> float:
         """
-        Enhanced heuristic evaluation function:
-        5 × (blocking Divercites from opponent)
-        + 5 × (Divercites for you)
-        + 2 × (Similar Resource Points)
-        - 3 × (Opponent Potential Divercites)
+        Evaluate the current state with emphasis on Divercités and blocking.
         """
-        player1, player2 = state.players
+        opponent_id = state.players[1].get_id() if self.get_id() == state.players[0].get_id() else state.players[0].get_id()
+        my_score = state.scores[self.get_id()]
+        opponent_score = state.scores[opponent_id]
+        
+        # Base evaluation from scores
+        evaluation = my_score - opponent_score
+        
+        # Count potential Divercités
         board_env = state.get_rep().get_env()
         dimensions = state.get_rep().get_dimensions()
-        
-        my_divercites = 0
-        blocking_divercites = 0
+        my_potential_divercites = 0
         opponent_potential_divercites = 0
-        similar_resource_points = 0
-
-        # Scan the board
+        
         for i in range(dimensions[0]):
             for j in range(dimensions[1]):
-                if not state.in_board((i, j)):
+                if not state.in_board((i, j)) or board_env.get((i, j)):
                     continue
-                    
-                # Count existing Divercites
-                if state.check_divercite((i, j)):
-                    piece = board_env.get((i, j))
-                    if piece and piece.get_owner_id() == self.get_id():
-                        my_divercites += 1
-
-                # Check neighbors for potential Divercites and blocking
-                neighbors = state.get_neighbours(i, j)
-                piece_types = [n[0].get_type() if isinstance(n[0], Piece) else None for n in neighbors.values()]
-                owner_ids = [n[0].get_owner_id() if isinstance(n[0], Piece) else None for n in neighbors.values()]
                 
-                # Count similar resource points
-                if (i, j) in board_env:
-                    curr_piece = board_env[(i, j)]
-                    if curr_piece.get_owner_id() == self.get_id():
-                        for neighbor in neighbors.values():
-                            if (isinstance(neighbor[0], Piece) and 
-                                neighbor[0].get_owner_id() == self.get_id() and 
-                                neighbor[0].get_type()[1] == curr_piece.get_type()[1]):
-                                similar_resource_points += 1
-
-                # Check if we're blocking opponent's potential Divercite
-                if any(id == player2.get_id() for id in owner_ids):
-                    unique_colors = len(set(pt[0] for pt in piece_types if pt))
-                    if unique_colors >= 2:  # If we're blocking a potential Divercite
-                        blocking_divercites += 1
-
-                # Count opponent's potential Divercites
-                if not board_env.get((i, j)):
-                    opponent_pieces = [pt for pt, id in zip(piece_types, owner_ids) 
-                                    if id == player2.get_id()]
-                    if len(set(p[0] for p in opponent_pieces if p)) >= 2:
-                        opponent_potential_divercites += 1
-
-        # Calculate final score using the provided weights
-        heuristic_score = (
-            6 * blocking_divercites +
-            5 * my_divercites +
-            2 * similar_resource_points -
-            3 * opponent_potential_divercites
-        )
-
-        # Add base game score
-        base_score = state.scores[self.get_id()] - state.scores[player2.get_id()]
+                if self.detect_potential_divercite(state, (i, j), self.get_id()):
+                    my_potential_divercites += 1
+                if self.detect_potential_divercite(state, (i, j), opponent_id):
+                    opponent_potential_divercites += 1
         
-        return heuristic_score + base_score
+        # Heavily weight potential Divercités
+        evaluation += my_potential_divercites * 3
+        evaluation -= opponent_potential_divercites * 5  # Penalize opponent's opportunities more
+        
+        return evaluation
