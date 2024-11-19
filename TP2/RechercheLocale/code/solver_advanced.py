@@ -5,7 +5,8 @@ import time
 from schedule import Schedule
 from collections import defaultdict
 
-
+# % OUARAD (2117136)
+# % FARHAT (2153946)
 
 def evaluate_solution(solution, num_courses):
     # Evaluate the quality of a solution by considering the number of timeslots used and the balance of courses across the timeslots.
