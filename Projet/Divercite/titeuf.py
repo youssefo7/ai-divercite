@@ -13,46 +13,121 @@ class MyPlayer(PlayerDivercite):
 
     def __init__(self, piece_type: str, name: str = "MyPlayer", depth_limit: int = 3):
         """
-        Initialize the PlayerDivercite instance with alpha-beta depth control.
+        Initialize the PlayerDivercite instance with adaptive depth control.
 
         Args:
             piece_type (str): Type of the player's game piece.
             name (str, optional): Name of the player.
-            depth_limit (int, optional): Maximum depth for alpha-beta pruning.
+            depth_limit (int, optional): Base depth limit for alpha-beta pruning.
         """
         super().__init__(piece_type, name)
         self.depth_limit = depth_limit
 
+    def get_adaptive_depth(self, current_state: GameStateDivercite) -> int:
+        """
+        Calculate the appropriate search depth based on the game progress.
+        
+        Args:
+            current_state (GameStateDivercite): Current game state
+            
+        Returns:
+            int: Adjusted depth limit
+        """
+        # Count number of pieces placed on the board
+        board_env = current_state.get_rep().get_env()
+        pieces_placed = len([piece for piece in board_env.values() if piece])
+        
+        # Adjust depth based on game progress
+                
+        if pieces_placed <= 5:
+            return 2  # Deep search for endgame
+        if pieces_placed > 5 and pieces_placed <= 20:
+              return 2  # Deep search for endgame
+        if pieces_placed >= 30:
+            return 5  # Deep search for endgame
+        elif pieces_placed >= 20:
+            return 4  # Increased depth for mid-late game
+        else:
+            return self.depth_limit  # Base depth for early game
+    
     def compute_action(self, current_state: GameStateDivercite, remaining_time: int = 1e9, **kwargs) -> Action:
         """
-        Choose the best action based on minimax with alpha-beta pruning.
-
-        Args:
-            current_state (GameStateDivercite): The current game state.
-
-        Returns:
-            Action: The best action as determined by alpha-beta pruning.
+        Choose the best action with priority handling for critical Divercite situations.
         """
+        current_depth = self.get_adaptive_depth(current_state)
+
+        def check_one_off_divercite(state, player_id):
+            """Helper to find positions where a player is one move away from Divercite"""
+            board_env = state.get_rep().get_env()
+            dimensions = state.get_rep().get_dimensions()
+            critical_moves = []
+
+            for i in range(dimensions[0]):
+                for j in range(dimensions[1]):
+                    if not state.in_board((i, j)) or board_env.get((i, j)):
+                        continue
+
+                    # Check if this empty position would complete a Divercite
+                    neighbors = state.get_neighbours(i, j)
+                    piece_types = [n[0].get_type() if isinstance(n[0], Piece) else None for n in neighbors.values()]
+                    owner_ids = [n[0].get_owner_id() if isinstance(n[0], Piece) else None for n in neighbors.values()]
+                    
+                    # Filter pieces owned by the player
+                    player_pieces = [pt for pt, id in zip(piece_types, owner_ids) if id == player_id]
+                    if player_pieces:
+                        colors = set(p[0] for p in player_pieces if p)
+                        if len(colors) >= 3:  # Player already has 3 different colors
+                            # Check if placing a piece here would complete a Divercite
+                            for action in state.generate_possible_light_actions():
+                                # Ensure action has 'position' in its dictionary and is valid
+                                if hasattr(action, "data") and "position" in action.data:
+                                    if action.data["position"] == (i, j):
+                                        new_state = state.apply_action(action)
+                                        if new_state.check_divercite((i, j)):
+                                            critical_moves.append(action)
+            
+            return critical_moves
+
+        # Get current scores
+        my_score = current_state.scores[self.get_id()]
+        opponent_id = current_state.players[1].get_id() if self.get_id() == current_state.players[0].get_id() else current_state.players[0].get_id()
+        opponent_score = current_state.scores[opponent_id]
+
+        # Check for critical Divercite situations
+        opponent_critical_moves = check_one_off_divercite(current_state, opponent_id)
+        my_critical_moves = check_one_off_divercite(current_state, self.get_id())
+
+        # Case 1: If opponent is one off a Divercite, block immediately
+        if opponent_critical_moves and not my_critical_moves:
+            return opponent_critical_moves[0]  # Block the first critical move found
+        
+        # Case 2: If we are one off a Divercite and opponent is not, complete our Divercite
+        if my_critical_moves and not opponent_critical_moves:
+            return my_critical_moves[0]  # Complete our Divercite
+        
+        # Case 3: If both players are one off a Divercite
+        if my_critical_moves and opponent_critical_moves:
+            if opponent_score >= my_score:
+                # If opponent is winning or tied, block them
+                return opponent_critical_moves[0]
+            else:
+                # If we're winning, complete our Divercite
+                return my_critical_moves[0]
+
+        # If no critical situations, proceed with normal minimax search
         best_action = None
         max_score = -float("inf")
-
-        # Alpha and Beta initialized
         alpha = -float("inf")
         beta = float("inf")
 
-        # Iterate over possible actions and apply minimax with alpha-beta pruning
+        # Regular minimax logic
         for action in current_state.generate_possible_light_actions():
-            # Apply action to get a new game state
             new_state = current_state.apply_action(action)
-
-            # Recursively call minimax on the new state, decreasing depth
-            score = self.minimax(new_state, self.depth_limit - 1, alpha, beta, maximizing_player=False)
-
-            # Update the best move if we find a higher score
+            score = self.minimax(new_state, current_depth - 1, alpha, beta, maximizing_player=False)
+            
             if score > max_score:
                 max_score = score
                 best_action = action
-            # Update alpha
             alpha = max(alpha, score)
 
         return best_action
