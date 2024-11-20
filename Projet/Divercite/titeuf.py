@@ -7,32 +7,13 @@ from seahorse.game.light_action import LightAction
 from seahorse.game.game_layout.board import Piece
 
 class MyPlayer(PlayerDivercite):
-    """
-    Player class for Divercite game using minimax with alpha-beta pruning.
-    """
 
     def __init__(self, piece_type: str, name: str = "MyPlayer", depth_limit: int = 3):
-        """
-        Initialize the PlayerDivercite instance with adaptive depth control.
-
-        Args:
-            piece_type (str): Type of the player's game piece.
-            name (str, optional): Name of the player.
-            depth_limit (int, optional): Base depth limit for alpha-beta pruning.
-        """
         super().__init__(piece_type, name)
         self.depth_limit = depth_limit
 
     def get_adaptive_depth(self, current_state: GameStateDivercite) -> int:
-        """
-        Calculate the appropriate search depth based on the game progress.
-        
-        Args:
-            current_state (GameStateDivercite): Current game state
-            
-        Returns:
-            int: Adjusted depth limit
-        """
+
         # Count number of pieces placed on the board
         board_env = current_state.get_rep().get_env()
         pieces_placed = len([piece for piece in board_env.values() if piece])
@@ -51,9 +32,7 @@ class MyPlayer(PlayerDivercite):
             return self.depth_limit  # Base depth for early game
     
     def compute_action(self, current_state: GameStateDivercite, remaining_time: int = 1e9, **kwargs) -> Action:
-        """
-        Choose the best action with priority handling for critical Divercite situations.
-        """
+        
         current_depth = self.get_adaptive_depth(current_state)
 
         def check_one_off_divercite(state, player_id):
@@ -133,19 +112,7 @@ class MyPlayer(PlayerDivercite):
         return best_action
 
     def minimax(self, state: GameStateDivercite, depth: int, alpha: float, beta: float, maximizing_player: bool) -> float:
-        """
-        Minimax function with alpha-beta pruning.
 
-        Args:
-            state (GameStateDivercite): The current game state.
-            depth (int): Depth of search left.
-            alpha (float): Alpha value for pruning.
-            beta (float): Beta value for pruning.
-            maximizing_player (bool): True if the current player is maximizing.
-
-        Returns:
-            float: The evaluated score of the game state.
-        """
         if depth == 0 or state.is_done():
             # Return heuristic evaluation at leaf nodes or end-game
             return self.evaluate_state(state)
@@ -174,13 +141,6 @@ class MyPlayer(PlayerDivercite):
             return min_eval
 
     def evaluate_state(self, state: GameStateDivercite) -> float:
-        """
-        Enhanced heuristic evaluation function:
-        5 × (blocking Divercites from opponent)
-        + 5 × (Divercites for you)
-        + 2 × (Similar Resource Points)
-        - 3 × (Opponent Potential Divercites)
-        """
         player1, player2 = state.players
         board_env = state.get_rep().get_env()
         dimensions = state.get_rep().get_dimensions()

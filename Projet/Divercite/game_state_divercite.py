@@ -308,7 +308,9 @@ class GameStateDivercite(GameState):
             bool: True if the position has won a divercite, False otherwise.
         """
         neighbors = self.get_neighbours(pos[0], pos[1]) if not board else board.get_neighbours(pos[0], pos[1])
-        return len(set([n[0].get_type()[0] for n in neighbors.values() if isinstance(n[0], Piece)]).union(set([piece_color]) if piece_color else {})) == 4
+        predicate = len(set([n[0].get_type()[0] for n in neighbors.values() if isinstance(n[0], Piece)]).union(set([piece_color]) if piece_color else {})) == 4
+        
+        return predicate
     
     
     def __str__(self) -> str:
