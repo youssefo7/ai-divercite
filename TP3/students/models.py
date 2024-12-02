@@ -66,11 +66,11 @@ class RegressionModel(object):
 
     def __init__(self) -> None:
         # Initialize your model parameters here
-        hidden_dim = 150
+        hidden_dimensions = 150
 
-        self.W1 = nn.Parameter(1, hidden_dim)
-        self.b1 = nn.Parameter(1, hidden_dim)
-        self.W2 = nn.Parameter(hidden_dim, 1)
+        self.W1 = nn.Parameter(1, hidden_dimensions)
+        self.b1 = nn.Parameter(1, hidden_dimensions)
+        self.W2 = nn.Parameter(hidden_dimensions, 1)
         self.b2 = nn.Parameter(1, 1)
 
     def run(self, x: nn.Constant) -> nn.Node:
@@ -143,7 +143,10 @@ class DigitClassificationModel(object):
 
     def __init__(self) -> None:
         # Initialize your model parameters here
-        "*** TODO: COMPLETE HERE FOR QUESTION 3 ***"
+        self.W1 = nn.Parameter(784, 128)
+        self.b1 = nn.Parameter(1, 128)
+        self.W2 = nn.Parameter(128, 10)
+        self.b2 = nn.Parameter(1, 10)
 
     def run(self, x: nn.Constant) -> nn.Node:
         """
@@ -159,7 +162,11 @@ class DigitClassificationModel(object):
             A node with shape (batch_size x 10) containing predicted scores
                 (also called logits)
         """
-        "*** TODO: COMPLETE HERE FOR QUESTION 3 ***"
+        hidden_layer = nn.ReLU(nn.AddBias(nn.Linear(x, self.W1), self.b1))
+
+        output = nn.AddBias(nn.Linear(hidden_layer, self.W2), self.b2)
+
+        return output
 
     def get_loss(self, x: nn.Constant, y: nn.Constant) -> nn.Node:
         """
@@ -174,10 +181,28 @@ class DigitClassificationModel(object):
             y: a node with shape (batch_size x 10)
         Returns: a loss node
         """
-        "*** TODO: COMPLETE HERE FOR QUESTION 3 ***"
+        predicted_y = self.run(x)
+        return nn.SoftmaxLoss(predicted_y, y)
 
     def train(self, dataset: DigitClassificationDataset) -> None:
         """
         Trains the model.
         """
-        "*** TODO: COMPLETE HERE FOR QUESTION 3 ***"
+        learning_rate = 0.5
+        batch_size = 200
+        validation_accuracy = 0
+        accuracy_threshold = 0.97
+
+        while validation_accuracy < accuracy_threshold:
+            for x_batch, y_batch in dataset.iterate_once(batch_size):
+
+                loss = self.get_loss(x_batch, y_batch)
+
+                gradients = nn.gradients(loss, [self.W1, self.b1, self.W2, self.b2])
+
+                self.W1.update(gradients[0], -learning_rate)
+                self.b1.update(gradients[1], -learning_rate)
+                self.W2.update(gradients[2], -learning_rate)
+                self.b2.update(gradients[3], -learning_rate)
+
+            validation_accuracy = dataset.get_validation_accuracy()
