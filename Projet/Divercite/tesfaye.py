@@ -106,7 +106,7 @@ class MyPlayer(PlayerDivercite):
             return 6
 
     def is_maximizing_player(self, current_state: GameStateDivercite) -> bool:
-        return current_state.next_player.get_id() == self.get_id()
+        return True
 
     def minimax(self, current_state: GameStateDivercite, depth: int, alpha: float, beta: float,
                         maximizing_player: bool, start_time: float, time_limit: float):
